@@ -1,6 +1,8 @@
-use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use crossterm::terminal::{enable_raw_mode, disable_raw_mode, Clear, ClearType};
 use crossterm::event::{Event, KeyCode, KeyModifiers, read};
 use colored::Colorize;
+use crossterm::execute;
+use crossterm::cursor::MoveToColumn;
 use std::io::Write;
 
 mod readutil;
@@ -86,12 +88,7 @@ impl Reader {
     }
 
     fn pretty_print(&self, string: String){
-        print!("\r");
-        for _ in 0..(&self.prompt.to_string().len()+string.len())+1 {
-            print!(" ");
-            std::io::stdout().flush().unwrap();
-        }
-        std::io::stdout().flush().unwrap();
+        execute!(std::io::stdout(), Clear(ClearType::CurrentLine), MoveToColumn(0)).unwrap();
         print!("\r{}{}", &self.prompt, &self.prettify(&string[..]));
         std::io::stdout().flush()
             .expect("failed to flush stdout buffer");
