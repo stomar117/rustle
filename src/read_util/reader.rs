@@ -33,7 +33,7 @@ fn paint(color_map: &mut HashMap<String, String>, token: &str, color: &str, over
                 color_map.insert(String::from(token), value);
                 color_map.remove(&key);
                 if overlay {
-                    println!("2");
+                    // println!("2");
                     return token.color(&tmpvalue[..]);
                 }
             },
@@ -41,7 +41,7 @@ fn paint(color_map: &mut HashMap<String, String>, token: &str, color: &str, over
                 match key.find(token) {
                     Some(0) => {
                         if overlay {
-                            println!("1");
+                            // println!("1");
                             return token.color(value);
                         }
                     }
