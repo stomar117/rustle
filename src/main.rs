@@ -5,7 +5,7 @@ use reader::read_enum::ReadEnum;
 fn main() {
     let mut token_reader = reader::Reader::new("input> ");
     token_reader.get_cmd(vec!["clear", "exit", "this", "do"]);
-    let token_reader = token_reader;
+    let mut token_reader = token_reader;
     loop {
         let read_value = token_reader.read();
         match read_value {
