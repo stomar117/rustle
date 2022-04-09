@@ -4,48 +4,63 @@ use crossterm::{cursor::MoveToColumn, execute};
 use colored::{Colorize, ColoredString};
 use std::io::Write;
 use std::collections::HashMap;
+use std::ops::Deref;
 
 mod readutil;
 pub mod read_enum;
 use readutil::ReadVector;
 
+// Reader struct contains all the required objects for both parsing the string and navigation
 pub struct Reader {
     prompt: String,
     validity_vector: Option<Vec<String>>,
     color_map: HashMap<String, String>
 }
 
+// An easy to use interface for returning keystrokes
 struct KeyEventStore {
     keycode: KeyCode,
     key_mod: KeyModifiers
 }
 
+// Painter function which would update the color map if zny color change or token change is detected
 fn paint(color_map: &mut HashMap<String, String>, token: &str, color: &str, overlay: bool) -> ColoredString{
     let tempmap = color_map.clone();
     if color_map.is_empty() {
         color_map.insert(String::from(token), String::from(color));
     }
+    // println!("{:?}", color_map);
     for (key, value) in tempmap {
-        // println!("key: {} value: {}", key, value);
         match token.to_string().find(&key) {
             Some(0) => {
-                let tmpvalue = value.clone();
-                color_map.insert(String::from(token), value);
-                color_map.remove(&key);
-                if overlay {
-                    // println!("2");
-                    return token.color(&tmpvalue[..]);
+                if !overlay {
+                    if value != color || token != key {
+                        color_map.remove(&key);
+                        color_map.insert(token.to_string(), color.to_string());
+                    }
                 }
             },
             _ => {
                 match key.find(token) {
                     Some(0) => {
-                        if overlay {
-                            // println!("1");
+                        if !overlay {
+                            if value != color || token != key {
+                                color_map.remove(&key);
+                                color_map.insert(token.to_string(), color.to_string());
+                            }
+                        }
+                        else {
                             return token.color(value);
                         }
                     }
-                    _ => {}
+                    _ => {
+                        if overlay {
+                            return token.color(color);
+                        }
+                        if !overlay {
+                            color_map.insert(token.to_string(), color.to_string());
+                        }
+                    }
                 }
             }
         }
@@ -108,24 +123,35 @@ impl Reader {
         match &self.validity_vector {
             Some(vector) => {
                 let token_vec: Vec<&str> = string.split(" ").collect();
-                let mut toke_vec_non_static: Vec<String> = Vec::new();
+                let mut token_vec_non_static: Vec<String> = Vec::new();
                 for token in token_vec {
-                    toke_vec_non_static.push(token.to_string());
+                    token_vec_non_static.push(token.to_string());
                 }
-                let mut token_vec = toke_vec_non_static;
-                let record = vector
-                    .iter()
-                    .find(|string| string.to_string() == token_vec[0]);
-                match record {
-                    Some(_finding) => {
-                        token_vec[0] = paint(&mut self.color_map, &token_vec[0][..], "green", overlay).to_string();
-                    },
-                    None => {
-                        token_vec[0] = paint(&mut self.color_map, &token_vec[0][..], "red", overlay).to_string();
+                let token_vec: Vec<&str> = string.split(" ").collect();
+                let mut check: u8 = 0;
+                for (idx, &token) in token_vec.iter().enumerate() {
+                    if !token.is_empty() {
+                        if check == 0 {
+                            let init_record = vector
+                                .iter()
+                                .find(|string| string.to_string() == token.to_string());
+                            match init_record {
+                                Some(_) => {
+                                    token_vec_non_static[idx] = paint(&mut self.color_map, token.deref(), "green", overlay).to_string();
+                                },
+                                None => {
+                                    token_vec_non_static[idx] = paint(&mut self.color_map, token.deref(), "red", overlay).to_string();
+                                }
+                            }
+                            check = 1;
+                        }
+                        if check == 1 {
+                            // println!("{}", check);
+                        }
                     }
-                    
+
                 }
-                token_vec.join(" ")
+                token_vec_non_static.join(" ")
             },
             None => string.to_string()
         }
@@ -135,13 +161,18 @@ impl Reader {
         let mut _string = String::new();
         let prompt = &self.prompt.clone();
         match readvector.join() {
-            Ok(rstring) => {_string = rstring}
+            Ok(rstring) => {_string = rstring;}
             Err(e) => panic!("{}",e)
         }
-        execute!(std::io::stdout(), Clear(ClearType::CurrentLine), MoveToColumn(0)).expect("Failed to clear buffer");
+        execute!(
+            std::io::stdout(),
+            Clear(ClearType::CurrentLine),
+            MoveToColumn(0)
+        ).expect("Failed to clear buffer");
+
         std::io::stdout().flush().unwrap();
-        print!("\r{}{}", prompt, &mut self.prettify(&_string[..], false));
-        print!("\r{}{}", prompt, &mut self.prettify(&readvector.join_lt()[..], true));
+        print!("\r{}{}", prompt, &mut self.prettify(_string.deref(), false));
+        print!("\r{}{}", prompt, &mut self.prettify(readvector.join_lt().deref(), true));
         std::io::stdout().flush()
             .expect("failed to flush stdout buffer");
         if readvector.is_empty() {
